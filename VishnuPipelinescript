@@ -1,0 +1,44 @@
+node
+{
+  echo "GitHub BranhName ${env.BRANCH_NAME}"
+  echo "Jenkins Job Number ${env.BUILD_NUMBER}"
+  echo "Jenkins Node Name ${env.NODE_NAME}"
+  
+  echo "Jenkins Home ${env.JENKINS_HOME}"
+  echo "Jenkins URL ${env.JENKINS_URL}"
+  echo "JOB Name ${env.JOB_NAME}"
+  
+  properties([
+    buildDiscarder(logRotator(numToKeepStr: '3')),
+    pipelineTriggers([
+        pollSCM('* * * * *')
+    ])
+  ])
+
+def mavenhome = tool name : "Maven-3.6.3"
+ 
+stage('GitCheckouttheCode')
+{
+git branch: 'development', credentialsId: '732ca167-6b38-44b4-81f2-32ebb203f8b8', url: 'https://github.com/VishnuPriyaKurasi/maven-web-application.git'
+}
+
+stage('Build')
+{
+sh "${mavenhome}/bin/mvn clean package"
+}
+stage('ReportSonarQube')
+{
+sh "${mavenhome}/bin/mvn sonar:sonar"
+}
+stage('UploadArtifactsintoNexus')
+{
+sh "${mavenhome}/bin/mvn deploy"
+}
+stage('DeployintoTomcat')
+{
+sshagent(['545145a3-8952-4655-809d-1d701435d385']) 
+{
+sh "scp -o StrictHostKeyChecking=no target/maven-web-application.war ec2-user@13.233.136.181:/opt/apache-tomcat-9.0.29/webapps/maven-web-application.war"
+}
+}
+}
